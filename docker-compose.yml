@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: findit-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: findit
+      MYSQL_USER: findit
+      MYSQL_PASSWORD: findit_dev_password
+      MYSQL_ROOT_PASSWORD: root_dev_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - findit_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot_dev_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+volumes:
+  findit_mysql_data:
