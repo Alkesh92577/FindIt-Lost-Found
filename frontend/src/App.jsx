@@ -32,7 +32,11 @@ function App() {
 }
 function Home() {
   const [items, setItems] = useState([])
-  useEffect(() => { request('/items').then(setItems).catch(() => setItems(sampleItems)) }, [])
+  useEffect(() => {
+  request('/items')
+    .then(setItems)
+    .catch(() => setItems([]));
+}, []);
   const lost = items.filter(i => i.type === 'LOST').length
   const found = items.filter(i => i.type === 'FOUND').length
   return <>
@@ -50,11 +54,7 @@ function Home() {
   </>
 }
 function Step({n,icon,title,text}) { return <div className="step-card"><div className="step-top"><span>{n}</span><div className="step-icon">{icon}</div></div><h3>{title}</h3><p>{text}</p></div> }
-const sampleItems = [
-  {id:'demo-1',type:'FOUND',title:'Blue water bottle',category:'Accessories',description:'Reusable bottle found near the library entrance.',color:'Blue',locationLabel:'City library',eventDate:new Date().toISOString().slice(0,10),status:'OPEN'},
-  {id:'demo-2',type:'LOST',title:'Black leather wallet',category:'Wallet',description:'Black wallet with a few cards inside. Please do not share card details publicly.',color:'Black',locationLabel:'Central bus stand',eventDate:new Date().toISOString().slice(0,10),status:'OPEN'},
-  {id:'demo-3',type:'FOUND',title:'Keys with red keychain',category:'Keys',description:'Small bunch of keys with a red keychain.',color:'Silver / red',locationLabel:'Community park',eventDate:new Date().toISOString().slice(0,10),status:'OPEN'}
-]
+
 function ItemGrid({items,loading}) {
   if(loading) return <div className="empty-state">Loading community reports…</div>
   if(!items?.length) return <div className="empty-state"><PackageSearch size={34}/><h3>No listings yet</h3><p>Be the first to help someone find their item.</p><Link className="button button-dark" to="/report">Create a report</Link></div>
@@ -69,7 +69,18 @@ function formatDate(value) { if(!value)return 'Date not set'; return new Date(va
 function Browse() {
   const [searchParams] = useSearchParams()
   const [items,setItems]=useState([]),[loading,setLoading]=useState(true),[q,setQ]=useState(''),[type,setType]=useState(searchParams.get('type')||'ALL'),[category,setCategory]=useState('All categories'),[sort,setSort]=useState('newest'),[error,setError]=useState('')
-  useEffect(()=>{request('/items').then(data=>{setItems(data);setError('')}).catch(()=>{setItems(sampleItems);setError('Demo listings shown — start the backend to load live data')}).finally(()=>setLoading(false))},[])
+  useEffect(() => {
+  request('/items')
+    .then(data => {
+      setItems(data);
+      setError('');
+    })
+    .catch(() => {
+      setItems([]);
+      setError('Listings load nahi ho pa rahi hain. Backend connection check karein.');
+    })
+    .finally(() => setLoading(false));
+}, []);
   const filtered=useMemo(()=>items.filter(i=>(type==='ALL'||i.type===type)&&(category==='All categories'||i.category===category)&&`${i.title} ${i.description} ${i.locationLabel} ${i.category}`.toLowerCase().includes(q.toLowerCase())).sort((a,b)=>sort==='newest'?String(b.eventDate).localeCompare(String(a.eventDate)):String(a.title).localeCompare(String(b.title))),[items,type,category,q,sort])
   return <main className="page-main"><section className="page-hero"><div className="container"><div className="eyebrow">COMMUNITY BOARD</div><h1>Find what you're <em>looking for.</em></h1><p>Search reports from people nearby. A few details can make all the difference.</p><div className="browse-search"><Search/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search items, places, colours…"/><span>{filtered.length} results</span></div></div></section><section className="container browse-layout"><aside className="filters-panel"><div className="filter-title"><Filter size={17}/> Filters <button onClick={()=>{setType('ALL');setCategory('All categories');setQ('')}}>Reset</button></div><label className="field-label">Listing type</label><div className="type-filter"><button className={type==='ALL'?'active':''} onClick={()=>setType('ALL')}>All items</button><button className={type==='LOST'?'active':''} onClick={()=>setType('LOST')}>Lost</button><button className={type==='FOUND'?'active':''} onClick={()=>setType('FOUND')}>Found</button></div><label className="field-label" htmlFor="category">Category</label><select id="category" value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><div className="filter-tip"><ShieldCheck size={19}/><div><b>Stay safe</b><p>Never share passwords, OTPs or full ID numbers in a public listing.</p></div></div></aside><div className="browse-results"><div className="results-toolbar"><div><b>Community listings</b><span>{filtered.length} items</span></div><label>Sort by <select value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Recent first</option><option value="title">Name A–Z</option></select></label></div>{error&&<div className="notice notice-info">{error}</div>}<ItemGrid items={filtered} loading={loading}/></div></section></main>
 }
@@ -83,7 +94,11 @@ function Report() {
 }
 function ItemDetail() {
   const {id}=useParams(),[item,setItem]=useState(null),[error,setError]=useState(''),[message,setMessage]=useState(''),[proof,setProof]=useState(''),[claimError,setClaimError]=useState(''),[busy,setBusy]=useState(false)
-  useEffect(()=>{request(`/items/${id}`).then(setItem).catch(()=>setItem(sampleItems.find(i=>String(i.id)===id)||null))},[id])
+  useEffect(() => {
+    request(`/items/${id}`)
+      .then(setItem)
+      .catch(() => setItem(null));
+  }, [id]);
   async function claim(e){e.preventDefault();setBusy(true);setClaimError('');try{await request(`/items/${id}/claims`,{method:'POST',body:JSON.stringify({message,proofDetails:proof})});setError('Your claim was submitted for review.');setMessage('');setProof('')}catch(e){setClaimError(e.message)}finally{setBusy(false)}}
   if(!item)return <main className="container detail-page"><div className="empty-state"><PackageSearch/><h2>Listing not found</h2><Link to="/browse" className="button button-dark">Back to listings</Link></div></main>
   return <main className="container detail-page"><Link to="/browse" className="back-link">← Back to listings</Link><div className="detail-grid"><div className="detail-image"><img src={imageUrl(item.imagePath)||fallbackImages[item.category]||fallbackImages.Other} alt={item.title}/><span className={`status-pill ${item.type==='FOUND'?'status-found':'status-lost'}`}>{item.type==='FOUND'?'Found item':'Lost item'}</span></div><div className="detail-content"><div className="eyebrow">{item.category} · {item.status||'OPEN'}</div><h1>{item.title}</h1><p className="detail-description">{item.description}</p><div className="detail-facts"><div><MapPin/><span><small>Reported location</small><b>{item.locationLabel}</b></span></div><div><CalendarDays/><span><small>Date reported lost/found</small><b>{formatDate(item.eventDate)}</b></span></div><div><UserRound/><span><small>Reported by</small><b>{item.reporterName||'Community member'}</b></span></div></div><div className="notice notice-info"><ShieldCheck size={19}/><span>To protect the owner, some identifying details should remain private. You may be asked to provide proof before a handover.</span></div>{item.type==='FOUND'&&<form className="claim-form" onSubmit={claim}><h3>Think this belongs to you?</h3><p>Share a few details that can help verify ownership. Do not include passwords, OTPs or full ID numbers.</p><label className="field-label">Message *</label><textarea required value={message} onChange={e=>setMessage(e.target.value)} rows="3" placeholder="Tell the reporter why you think this is your item…"/><label className="field-label">Private ownership details *</label><textarea required value={proof} onChange={e=>setProof(e.target.value)} rows="3" placeholder="Describe a unique mark, contents or detail not shown publicly…"/>{claimError&&<div className="notice notice-error">{claimError}</div>}{error&&<div className="notice notice-success">{error}</div>}<button className="button button-dark button-wide" disabled={busy}>{busy?'Submitting…':'Submit ownership claim'} <ArrowUpRight size={17}/></button></form>}</div></div></main>
@@ -115,14 +130,28 @@ function AdminDashboard() {
   const user=getUser(),navigate=useNavigate()
   useEffect(()=>{if(!user){navigate('/login');return}if(user.role!=='ADMIN'){navigate('/dashboard');return}request('/admin/items').then(setItems).catch(e=>setError(e.message)).finally(()=>setLoading(false))},[])
   async function updateStatus(item,status){setBusyId(item.id);setError('');try{await request(`/admin/items/${item.id}/status`,{method:'PATCH',body:JSON.stringify({status})});setItems(old=>old.map(x=>x.id===item.id?{...x,status}:x))}catch(e){setError(e.message)}finally{setBusyId(null)}}
+  async function deleteListing(item) {
+    const confirmed = window.confirm(`Delete the listing \"${item.title}\" (ID ${item.id})? This cannot be undone.`);
+    if (!confirmed) return;
+    setBusyId(item.id);
+    setError('');
+    try {
+      await request(`/admin/items/${item.id}`, { method: 'DELETE' });
+      setItems(current => current.filter(row => row.id !== item.id));
+    } catch (e) {
+      setError(e.message || 'Could not delete listing. Related claims or chats may need to be handled first.');
+    } finally {
+      setBusyId(null);
+    }
+  }
   if(!user||user.role!=='ADMIN')return null
   const lost=items.filter(x=>x.type==='LOST').length,found=items.filter(x=>x.type==='FOUND').length,returned=items.filter(x=>x.status==='RETURNED').length
   return <main className="dashboard-page container admin-page">
     <div className="admin-banner"><div><div className="eyebrow eyebrow-light">FINDIT CONTROL CENTRE</div><h1>Admin <em>dashboard.</em></h1><p>Monitor community reports and keep the recovery process safe.</p></div><span className="admin-badge"><ShieldCheck size={17}/> Administrator</span></div>
     <div className="dashboard-stats admin-stats"><div><span className="dash-stat-icon"><PackageSearch/></span><small>Total reports</small><strong>{items.length}</strong></div><div><span className="dash-stat-icon"><Search/></span><small>Lost items</small><strong>{lost}</strong></div><div><span className="dash-stat-icon"><CheckCircle2/></span><small>Found / returned</small><strong>{found} / {returned}</strong></div></div>
     {error&&<div className="notice notice-error">{error}</div>}
-    <section className="panel admin-table-panel"><div className="panel-heading"><div><h2>Community reports</h2><p>Review listings and update their status.</p></div><Link className="button button-dark button-small" to="/browse">View public board <ArrowUpRight size={15}/></Link></div>
-    {loading?<div className="admin-loading"><span className="loading-spinner"/> Loading reports…</div>:items.length===0?<div className="dashboard-empty"><PackageSearch/><b>No reports found</b><span>Community reports will appear here.</span></div>:<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Item</th><th>Type</th><th>Location</th><th>Status</th><th>Manage status</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><b>{item.title}</b><small>{item.category||'Other'} · {formatDate(item.eventDate)}</small></td><td><span className={`status-pill-inline ${item.type==='FOUND'?'status-found':'status-lost'}`}>{item.type}</span></td><td>{item.locationLabel||'—'}</td><td><span className="row-status">{item.status||'OPEN'}</span></td><td><select aria-label={`Status for ${item.title}`} value={item.status||'OPEN'} disabled={busyId===item.id} onChange={e=>updateStatus(item,e.target.value)}><option value="OPEN">Open</option><option value="RETURNED">Returned</option><option value="CLOSED">Closed</option></select></td></tr>)}</tbody></table></div>}</section>
+    <section className="panel admin-table-panel"><div className="panel-heading"><div><h2>Community reports</h2><p>Review listings, update status, or permanently delete unwanted reports.</p></div><Link className="button button-dark button-small" to="/browse">View public board <ArrowUpRight size={15}/></Link></div>
+    {loading?<div className="admin-loading"><span className="loading-spinner"/> Loading reports…</div>:items.length===0?<div className="dashboard-empty"><PackageSearch/><b>No reports found</b><span>Community reports will appear here.</span></div>:<div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Item</th><th>Type</th><th>Location</th><th>Status</th><th>Manage status</th><th>Delete</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><b>{item.title}</b><small>{item.category||'Other'} · {formatDate(item.eventDate)}</small></td><td><span className={`status-pill-inline ${item.type==='FOUND'?'status-found':'status-lost'}`}>{item.type}</span></td><td>{item.locationLabel||'—'}</td><td><span className="row-status">{item.status||'OPEN'}</span></td><td><select aria-label={`Status for ${item.title}`} value={item.status||'OPEN'} disabled={busyId===item.id} onChange={e=>updateStatus(item,e.target.value)}><option value="OPEN">Open</option><option value="RETURNED">Returned</option><option value="CLOSED">Closed</option></select></td><td><button type="button" className="button button-small" style={{background:'#b91c1c',color:'#fff',borderColor:'#b91c1c'}} disabled={busyId===item.id} onClick={() => deleteListing(item)}>{busyId===item.id ? 'Working…' : 'Delete'}</button></td></tr>)}</tbody></table></div>}</section>
   </main>
 }
 

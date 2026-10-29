@@ -28,25 +28,16 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(
             HttpSecurity http,
-            AuthFilter authFilter
-    ) throws Exception {
+            AuthFilter authFilter) throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .sessionManagement(sm ->
-                sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
+                sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    org.springframework.http.HttpMethod.OPTIONS, "/**"
-                ).permitAll()
-                .requestMatchers(
-                    "/api/health",
-                    "/api/auth/**",
-                    "/api/items/**",
-                    "/uploads/**"
-                ).permitAll()
+                .requestMatchers("/api/health", "/api/auth/**",
+                        "/api/items/**", "/uploads/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/me/**").authenticated()
                 .anyRequest().authenticated()
@@ -63,13 +54,14 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration c = new CorsConfiguration();
 
-        c.setAllowedOrigins(List.of(
-            "https://findit-lost-found-one.vercel.app"
+        c.setAllowedOriginPatterns(List.of(
+            "https://findit-lost-found-one.vercel.app",
+            "http://localhost:*",
+            "http://127.0.0.1:*"
         ));
 
         c.setAllowedMethods(List.of(
-            "GET", "POST", "PUT", "PATCH",
-            "DELETE", "OPTIONS"
+            "GET", "POST", "PATCH", "DELETE", "OPTIONS"
         ));
 
         c.setAllowedHeaders(List.of(
